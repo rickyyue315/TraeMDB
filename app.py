@@ -6,6 +6,12 @@ except Exception:
     pyodbc = None
 import io
 import os
+from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo
+    _HK_TZ = ZoneInfo("Asia/Hong_Kong")
+except Exception:
+    _HK_TZ = None
 
 DB_DEFAULT = r"c:\\Users\\kf_yue\\Documents\\trae_projects\\MDB\\Upload Old Article RP Parameter (ideal stock added).mdb"
 
@@ -45,6 +51,14 @@ def insert_df(conn, table: str, df: pd.DataFrame, mode: str):
         cur.execute(sql, list(row.values))
     conn.commit()
     cur.close()
+
+def hk_date_yyyymmdd():
+    if _HK_TZ is not None:
+        return datetime.now(_HK_TZ).strftime("%Y%m%d")
+    return (datetime.utcnow() + timedelta(hours=8)).strftime("%Y%m%d")
+
+def build_result_name(base: str):
+    return f"{base}_Trae{hk_date_yyyymmdd()}" + ".xlsx"
 
 st.set_page_config(page_title="RP 參數上傳與檢核", layout="wide")
 st.title("Access 移植到 Streamlit: RP 參數作業")
@@ -213,7 +227,7 @@ if section == "雲端計算(無MDB)":
         bio = io.BytesIO()
         with pd.ExcelWriter(bio, engine='xlsxwriter') as w:
             out.to_excel(w, index=False, sheet_name='Sheet1')
-        st.download_button('下載 Result.xlsx', bio.getvalue(), file_name='Result.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        st.download_button('下載 Result.xlsx', bio.getvalue(), file_name=build_result_name('Result'), mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 elif section == "資料瀏覽":
     if conn is None:
@@ -322,7 +336,7 @@ if section == "計算與匯出":
     if do:
         try:
             df = apply_mdb_logic(conn, planning_path)
-            out_xlsx = os.path.join(os.path.dirname(db_path), "Result.xlsx")
+            out_xlsx = os.path.join(os.path.dirname(db_path), build_result_name("Result"))
             with pd.ExcelWriter(out_xlsx, engine="xlsxwriter") as w:
                 df.to_excel(w, index=False, sheet_name="Sheet1")
             st.success(f"已輸出 {out_xlsx}")
@@ -330,7 +344,7 @@ if section == "計算與匯出":
             bio = io.BytesIO()
             with pd.ExcelWriter(bio, engine="xlsxwriter") as w:
                 df.to_excel(w, index=False, sheet_name="Sheet1")
-            st.download_button("下載 Result.xlsx", bio.getvalue(), file_name="Result.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("下載 Result.xlsx", bio.getvalue(), file_name=os.path.basename(out_xlsx), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         except Exception as e:
             st.error(f"計算失敗: {e}")
 
@@ -414,7 +428,7 @@ if section == "檔案導入+計算":
         try:
             import_files_to_mdb(conn, rp_path, am_path)
             df = apply_mdb_logic(conn, planning_path)
-            out_xlsx = os.path.join(base, "Result.xlsx")
+            out_xlsx = os.path.join(base, build_result_name("Result"))
             with pd.ExcelWriter(out_xlsx, engine="xlsxwriter") as w:
                 df.to_excel(w, index=False, sheet_name="Sheet1")
             st.success(f"已輸出 {out_xlsx}")
