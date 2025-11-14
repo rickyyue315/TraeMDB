@@ -12,6 +12,12 @@ try:
     _HK_TZ = ZoneInfo("Asia/Hong_Kong")
 except Exception:
     _HK_TZ = None
+from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo
+    _HK_TZ = ZoneInfo("Asia/Hong_Kong")
+except Exception:
+    _HK_TZ = None
 
 DB_DEFAULT = r"c:\\Users\\kf_yue\\Documents\\trae_projects\\MDB\\Upload Old Article RP Parameter (ideal stock added).mdb"
 
@@ -63,6 +69,69 @@ def build_result_name(base: str):
 st.set_page_config(page_title="RP 參數上傳與檢核", layout="wide")
 st.title("Access 移植到 Streamlit: RP 參數作業")
 
+def hk_date_yyyymmdd():
+    if _HK_TZ is not None:
+        return datetime.now(_HK_TZ).strftime("%Y%m%d")
+    return (datetime.utcnow() + timedelta(hours=8)).strftime("%Y%m%d")
+
+def build_result_name(base: str):
+    return f"{base}_Trae{hk_date_yyyymmdd()}" + ".xlsx"
+
+def svg_data_url(path: str):
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+        import base64
+        b64 = base64.b64encode(data).decode()
+        return f"data:image/svg+xml;base64,{b64}"
+    except Exception:
+        return ""
+
+def inject_ui_style():
+    st.markdown(
+        """
+        <style>
+        :root { --primary:#0F766E; --primary-600:#115E59; --accent:#2563EB; --bg:#0B1220; --card:#0F172A; --muted:#94A3B8; --text:#E2E8F0; }
+        html, body, [data-testid="stAppViewContainer"] { background: var(--bg); color: var(--text); }
+        [data-testid="stSidebar"] { background: #0D1324; }
+        .brand-bar { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:12px; background: linear-gradient(90deg, var(--card), #0C1A34); border:1px solid #1E293B; }
+        .brand-title { font-weight:600; font-size:18px; letter-spacing:0.5px; }
+        .brand-sub { font-size:12px; color: var(--muted); display:flex; gap:16px; }
+        .tag { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(15,118,110,0.15); color: #A7F3D0; border:1px solid rgba(15,118,110,0.35); }
+        .section-header { display:flex; align-items:center; gap:10px; margin:18px 0 10px; }
+        .section-name { font-weight:600; font-size:16px; }
+        img.icon { width:20px; height:20px; }
+        .card { background: var(--card); border:1px solid #1E293B; border-radius:12px; padding:12px; }
+        .muted { color: var(--muted); }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def render_brand():
+    logo = svg_data_url(os.path.join("assets","icons","logo.svg"))
+    info = svg_data_url(os.path.join("assets","icons","info.svg"))
+    st.markdown(
+        f"""
+        <div class="brand-bar">
+          <img class="icon" src="{logo}">
+          <div>
+            <div class="brand-title">Access 移植到 Streamlit: RP 參數作業</div>
+            <div class="brand-sub">
+              <span class="tag">雲端模式</span>
+              <span class="muted">本系統僅限SASA RP team測試使用</span>
+              <span class="muted">開發者：Ricky Yue</span>
+            </div>
+          </div>
+          <img class="icon" src="{info}">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+inject_ui_style()
+render_brand()
+
 db_path = st.text_input("MDB 檔案路徑", DB_DEFAULT) if pyodbc else ""
 if pyodbc and not os.path.isfile(db_path):
     st.warning("找不到 MDB 檔案，請改用『雲端計算(無MDB)』或提供正確路徑")
@@ -80,6 +149,8 @@ if pyodbc is not None and os.path.isfile(db_path):
 section = st.sidebar.selectbox("功能", ["雲端計算(無MDB)", "資料瀏覽", "RP 參數上傳", "視圖與檢核", "計算與匯出", "匯出資料", "檔案導入+計算"])
 
 if section == "雲端計算(無MDB)":
+    cloud = svg_data_url(os.path.join("assets","icons","cloud.svg"))
+    st.markdown(f"<div class='section-header'><img class='icon' src='{cloud}'><div class='section-name'>雲端計算</div></div>", unsafe_allow_html=True)
     st.write("使用 RP_List.txt、Article Master.xlsx、Planning Cycle.xls，無需 Access 連線")
     rp_file = st.file_uploader("上傳 RP List.txt", type=["txt","csv"])
     am_file = st.file_uploader("上傳 Article Master.xlsx", type=["xlsx"])
@@ -230,6 +301,8 @@ if section == "雲端計算(無MDB)":
         st.download_button('下載 Result.xlsx', bio.getvalue(), file_name=build_result_name('Result'), mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 elif section == "資料瀏覽":
+    eye = svg_data_url(os.path.join("assets","icons","eye.svg"))
+    st.markdown(f"<div class='section-header'><img class='icon' src='{eye}'><div class='section-name'>資料瀏覽</div></div>", unsafe_allow_html=True)
     if conn is None:
         st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
         st.stop()
@@ -242,6 +315,8 @@ elif section == "資料瀏覽":
         st.dataframe(df, use_container_width=True)
 
 elif section == "RP 參數上傳":
+    upload_ic = svg_data_url(os.path.join("assets","icons","upload.svg"))
+    st.markdown(f"<div class='section-header'><img class='icon' src='{upload_ic}'><div class='section-name'>RP 參數上傳</div></div>", unsafe_allow_html=True)
     if conn is None:
         st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
         st.stop()
@@ -274,6 +349,8 @@ elif section == "RP 參數上傳":
                 st.error(f"寫入失敗: {e}")
 
 elif section == "視圖與檢核":
+    db_ic = svg_data_url(os.path.join("assets","icons","database.svg"))
+    st.markdown(f"<div class='section-header'><img class='icon' src='{db_ic}'><div class='section-name'>視圖與檢核</div></div>", unsafe_allow_html=True)
     if conn is None:
         st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
         st.stop()
@@ -326,6 +403,8 @@ def apply_mdb_logic(conn, planning_cycle_xls_path: str):
     return df
 
 if section == "計算與匯出":
+    calc_ic = svg_data_url(os.path.join("assets","icons","calc.svg"))
+    st.markdown(f"<div class='section-header'><img class='icon' src='{calc_ic}'><div class='section-name'>計算與匯出</div></div>", unsafe_allow_html=True)
     if conn is None:
         st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
         st.stop()
@@ -349,6 +428,8 @@ if section == "計算與匯出":
             st.error(f"計算失敗: {e}")
 
 elif section == "匯出資料":
+    export_ic = svg_data_url(os.path.join("assets","icons","export.svg"))
+    st.markdown(f"<div class='section-header'><img class='icon' src='{export_ic}'><div class='section-name'>匯出資料</div></div>", unsafe_allow_html=True)
     if conn is None:
         st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
         st.stop()
@@ -405,6 +486,7 @@ def compare_result(df: pd.DataFrame, ref_path: str):
         st.warning(f"比對失敗: {e}")
 
 if section == "檔案導入+計算":
+    st.markdown(f"<div class='section-header'><img class='icon' src='{upload_ic}'><div class='section-name'>檔案導入+計算</div></div>", unsafe_allow_html=True)
     if conn is None:
         st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
         st.stop()
