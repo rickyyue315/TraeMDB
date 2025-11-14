@@ -49,11 +49,9 @@ def insert_df(conn, table: str, df: pd.DataFrame, mode: str):
 st.set_page_config(page_title="RP 參數上傳與檢核", layout="wide")
 st.title("Access 移植到 Streamlit: RP 參數作業")
 
-db_path = st.text_input("MDB 檔案路徑", DB_DEFAULT)
-ok = os.path.isfile(db_path)
-if not ok:
-    st.error("找不到 MDB 檔案，請確認路徑")
-    st.stop()
+db_path = st.text_input("MDB 檔案路徑", DB_DEFAULT) if pyodbc else ""
+if pyodbc and not os.path.isfile(db_path):
+    st.warning("找不到 MDB 檔案，請改用『雲端計算(無MDB)』或提供正確路徑")
 
 conn = None
 tables, views = [], []
@@ -218,6 +216,9 @@ if section == "雲端計算(無MDB)":
         st.download_button('下載 Result.xlsx', bio.getvalue(), file_name='Result.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 elif section == "資料瀏覽":
+    if conn is None:
+        st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
+        st.stop()
     obj_type = st.radio("類型", ["TABLE", "VIEW"], horizontal=True)
     opts = tables if obj_type == "TABLE" else views
     name = st.selectbox("選擇物件", opts)
@@ -227,6 +228,9 @@ elif section == "資料瀏覽":
         st.dataframe(df, use_container_width=True)
 
 elif section == "RP 參數上傳":
+    if conn is None:
+        st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
+        st.stop()
     upload_target_candidates = [n for n in tables if n in [
         'RP_List','Article Master','MSS List','Exemption Qty','D001 MOQ','Vendor Schedule','Warehouse Calendar','Shop_Class'
     ]] or tables
@@ -256,6 +260,9 @@ elif section == "RP 參數上傳":
                 st.error(f"寫入失敗: {e}")
 
 elif section == "視圖與檢核":
+    if conn is None:
+        st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
+        st.stop()
     default_views = [v for v in views if v in ['Final Result 2','Check MOQ']]
     default_tables = [t for t in tables if t in ['Paste Errors','貼上錯誤','Problem Transactions','Final Result']]
     choices = default_views + default_tables
@@ -305,6 +312,9 @@ def apply_mdb_logic(conn, planning_cycle_xls_path: str):
     return df
 
 if section == "計算與匯出":
+    if conn is None:
+        st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
+        st.stop()
     planning_path = os.path.join(os.path.dirname(db_path), "Planning Cycle.xls")
     st.write("套用 New Planning Cycle / New Delivery Cycle 以計算 RP/理想庫存，並輸出 Result.xlsx")
     st.write("來源規則檔:", planning_path)
@@ -325,6 +335,9 @@ if section == "計算與匯出":
             st.error(f"計算失敗: {e}")
 
 elif section == "匯出資料":
+    if conn is None:
+        st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
+        st.stop()
     obj_type = st.radio("類型", ["TABLE", "VIEW"], horizontal=True)
     opts = tables if obj_type == "TABLE" else views
     name = st.selectbox("選擇物件", opts)
@@ -378,6 +391,9 @@ def compare_result(df: pd.DataFrame, ref_path: str):
         st.warning(f"比對失敗: {e}")
 
 if section == "檔案導入+計算":
+    if conn is None:
+        st.error("MDB 連線不可用，請改用『雲端計算(無MDB)』")
+        st.stop()
     base = os.path.dirname(db_path)
     rp_path = os.path.join(base, "RP List.txt")
     am_path = os.path.join(base, "Article Master.xlsx")
